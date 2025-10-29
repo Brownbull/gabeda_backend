@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.utils import timezone
+from django.conf import settings
 from apps.accounts.models import CompanyMember
 from .models import DataUpload, Transaction, Dataset, AnalyticsResult
 from .serializers import (
@@ -51,16 +52,16 @@ class CSVUploadView(generics.CreateAPIView):
 
         # Create upload directory if it doesn't exist
         upload_dir = f'uploads/{company_id}/'
-        os.makedirs(os.path.join('media', upload_dir), exist_ok=True)
+        os.makedirs(os.path.join(settings.MEDIA_ROOT, upload_dir), exist_ok=True)
 
         # Generate unique file name
         timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
         file_name = f"{timestamp}_{uploaded_file.name}"
         file_path = os.path.join(upload_dir, file_name)
 
-        # Save file
+        # Save file (default_storage already uses MEDIA_ROOT)
         full_path = default_storage.save(
-            os.path.join('media', file_path),
+            file_path,
             ContentFile(uploaded_file.read())
         )
 
@@ -74,14 +75,26 @@ class CSVUploadView(generics.CreateAPIView):
             status='pending'
         )
 
-        # TODO: Trigger Celery task for processing
-        # from .tasks import process_csv_upload
-        # process_csv_upload.delay(data_upload.id)
+        # Process immediately (synchronous for now)
+        # TODO: Move to Celery task for production
+        from .services import DatasetGenerationService
+
+        service = DatasetGenerationService(data_upload)
+        result = service.process()
+
+        if result['success']:
+            message = f"File uploaded and processed successfully. {result['transactions_created']} transactions, {result['results_created']} analytics results created."
+        else:
+            message = f"File uploaded but processing failed: {result.get('error', 'Unknown error')}"
+
+        # Refresh data_upload to get updated status
+        data_upload.refresh_from_db()
 
         return Response(
             {
-                'message': 'File uploaded successfully. Processing will begin shortly.',
-                'upload': DataUploadSerializer(data_upload).data
+                'message': message,
+                'upload': DataUploadSerializer(data_upload).data,
+                'processing_result': result
             },
             status=status.HTTP_201_CREATED
         )

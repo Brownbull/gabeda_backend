@@ -4,6 +4,7 @@ Test suite for analytics endpoints
 import pytest
 import io
 from rest_framework import status
+from conftest import get_results
 from django.core.files.uploadedfile import SimpleUploadedFile
 from apps.analytics.models import DataUpload, Transaction, Dataset, AnalyticsResult
 
@@ -61,7 +62,11 @@ class TestCSVUpload:
         assert response.status_code == status.HTTP_201_CREATED
         assert 'message' in response.data
         assert 'upload' in response.data
-        assert response.data['upload']['status'] == 'pending'
+
+        # Status should be 'completed' since processing is synchronous
+        assert response.data['upload']['status'] == 'completed'
+        assert 'processing_result' in response.data
+        assert response.data['processing_result']['success'] is True
 
         # Verify DataUpload was created
         upload_id = response.data['upload']['id']
@@ -136,15 +141,17 @@ class TestDataUploadList:
         response = authenticated_client.get('/api/analytics/uploads/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 1
-        assert any(u['id'] == str(data_upload.id) for u in response.data)
+        results = get_results(response.data)
+        assert len(results) >= 1
+        assert any(u['id'] == str(data_upload.id) for u in results)
 
     def test_list_uploads_empty(self, authenticated_client):
         """Test user with no uploads sees empty list"""
         response = authenticated_client.get('/api/analytics/uploads/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 0
+        results = get_results(response.data)
+        assert len(results) == 0
 
     def test_list_uploads_unauthenticated(self, api_client):
         """Test unauthenticated user cannot list uploads"""
@@ -161,8 +168,9 @@ class TestDataUploadList:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 1
-        assert all(u['company'] == str(company_with_admin.id) for u in response.data)
+        results = get_results(response.data)
+        assert len(results) >= 1
+        assert all(u['company'] == str(company_with_admin.id) for u in results)
 
 
 class TestDataUploadDetail:
@@ -220,8 +228,9 @@ class TestTransactionList:
         response = authenticated_client.get('/api/analytics/transactions/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 1
-        assert any(t['id'] == str(transaction.id) for t in response.data)
+        results = get_results(response.data)
+        assert len(results) >= 1
+        assert any(t['id'] == str(transaction.id) for t in results)
 
     def test_list_transactions_filter_by_company(
         self, authenticated_client, transaction, company_with_admin
@@ -232,7 +241,8 @@ class TestTransactionList:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert all(t['company'] == str(company_with_admin.id) for t in response.data)
+        results = get_results(response.data)
+        assert all(t['company'] == str(company_with_admin.id) for t in results)
 
     def test_list_transactions_filter_by_date_range(self, authenticated_client, transaction):
         """Test filtering transactions by date range"""
@@ -263,8 +273,9 @@ class TestDatasetList:
         response = authenticated_client.get('/api/analytics/datasets/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 1
-        assert any(d['id'] == str(dataset.id) for d in response.data)
+        results = get_results(response.data)
+        assert len(results) >= 1
+        assert any(d['id'] == str(dataset.id) for d in results)
 
     def test_list_datasets_filter_by_type(self, authenticated_client, dataset):
         """Test filtering datasets by type"""
@@ -273,7 +284,8 @@ class TestDatasetList:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert all(d['dataset_type'] == 'filtered' for d in response.data)
+        results = get_results(response.data)
+        assert all(d['dataset_type'] == 'filtered' for d in results)
 
 
 class TestAnalyticsResults:
@@ -308,7 +320,8 @@ class TestAnalyticsResults:
         response = authenticated_client.get('/api/analytics/results/')
 
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) >= 1
+        results = get_results(response.data)
+        assert len(results) >= 1
 
     def test_list_results_role_filtering_admin(
         self, authenticated_client, kpi_result, admin_only_result
@@ -317,7 +330,8 @@ class TestAnalyticsResults:
         response = authenticated_client.get('/api/analytics/results/')
 
         assert response.status_code == status.HTTP_200_OK
-        result_ids = [r['id'] for r in response.data]
+        results = get_results(response.data)
+        result_ids = [r['id'] for r in results]
         assert str(kpi_result.id) in result_ids
         assert str(admin_only_result.id) in result_ids
 
@@ -344,7 +358,8 @@ class TestAnalyticsResults:
         response = api_client.get('/api/analytics/results/')
 
         assert response.status_code == status.HTTP_200_OK
-        result_ids = [r['id'] for r in response.data]
+        results = get_results(response.data)
+        result_ids = [r['id'] for r in results]
         assert str(kpi_result.id) in result_ids
         assert str(admin_only_result.id) not in result_ids
 
@@ -355,7 +370,8 @@ class TestAnalyticsResults:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert all(r['result_type'] == 'kpi' for r in response.data)
+        results = get_results(response.data)
+        assert all(r['result_type'] == 'kpi' for r in results)
 
     def test_get_results_by_type_missing_param(self, authenticated_client):
         """Test by_type endpoint requires result_type parameter"""

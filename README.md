@@ -67,7 +67,7 @@ python test_api.py
 
 ## API Endpoints
 
-See [API_DOCUMENTATION.md](API_DOCUMENTATION.md) for complete reference.
+See [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) for complete reference.
 
 ### Authentication
 - `POST /api/accounts/auth/register/` - Register new user
@@ -99,7 +99,7 @@ See [API_DOCUMENTATION.md](API_DOCUMENTATION.md) for complete reference.
 
 ## What's Implemented
 
-### ✅ Completed (Phase 1 - Week 1-2)
+### ✅ Completed (Phase 1 - Backend MVP)
 - Django project setup with split settings (base, local, production)
 - Custom User model (email-based authentication)
 - Company and CompanyMember models (multi-tenancy + RBAC)
@@ -110,39 +110,151 @@ See [API_DOCUMENTATION.md](API_DOCUMENTATION.md) for complete reference.
 - Django Admin for all models
 - JWT authentication configured
 - GabeDA /src integration path configured
-- API test script (test_api.py)
-- Complete API documentation (API_DOCUMENTATION.md)
+- **CSV upload endpoint with validation** ✅
+- **DatasetGenerationService (bridge to GabeDA /src)** ✅
+- **Comprehensive test suite (71 tests, 90% passing)** ✅
+- Complete API documentation (docs/API_DOCUMENTATION.md)
+- Test results documentation (docs/BACKEND_TEST_RESULTS.md)
 
-### ⏳ In Progress (Phase 1 - Week 3)
-- CSV upload endpoint with validation
-- DatasetGenerationService (bridge to GabeDA /src)
-- Celery tasks for background processing
-
-### 📋 Upcoming (Phase 1 - Week 4-6)
-- Analytics API endpoints
+### 📋 Upcoming (Phase 2 - Frontend & Polish)
+- **Frontend web application** (React/Next.js recommended)
+- Celery tasks for async background processing
+- Analytics API endpoints (currently returns mock data)
 - Dataset retrieval endpoints
-- Role-based analytics filtering
-- Excel/PDF export
-- Basic API tests (pytest)
+- Role-based analytics filtering refinement
+- Excel/PDF export improvements
+- Fix remaining 6 failing tests
+
+## Project Structure
+
+```
+gabeda_backend/
+├── apps/                 # Django applications
+│   ├── accounts/        # User, Company, CompanyMember models
+│   └── analytics/       # DataUpload, Transaction, Dataset, AnalyticsResult
+├── config/              # Django settings
+│   └── settings/        # Split settings (base, local, production)
+├── docs/                # Documentation
+│   ├── API_DOCUMENTATION.md
+│   ├── BACKEND_TEST_RESULTS.md
+│   └── SETUP_INSTRUCTIONS.md
+├── scripts/             # Utility scripts
+│   └── setup_apps.py   # App creation script
+├── tests/               # Test suite (71 tests)
+│   ├── conftest.py     # Pytest fixtures
+│   ├── test_authentication.py
+│   ├── test_companies.py
+│   ├── test_analytics.py
+│   └── test_dataset_generation.py
+├── media/               # Uploaded files (gitignored)
+├── static/              # Static files
+├── logs/                # Application logs
+├── manage.py           # Django management
+├── pytest.ini          # Pytest configuration
+└── requirements.txt    # Python dependencies
+```
 
 ## Next Steps
 
-To continue with development:
+### Option 1: Build Frontend Application 🎨
 
-1. **Test Current API**: Run `python test_api.py` to verify authentication and company endpoints
-2. **Create CSV Upload Endpoint**: Implement file upload with validation
-3. **Build DatasetGenerationService**: Integrate with GabeDA `/src` analytics engine
-4. **Add Celery Tasks**: Background processing for dataset generation
-5. **Create Analytics API**: Endpoints for retrieving KPIs, alerts, insights
-6. **Write Tests**: Comprehensive pytest suite
+Create a React/Next.js frontend to interact with the backend API:
+
+**Recommended Tech Stack:**
+- **Framework**: Next.js 14+ (App Router)
+- **UI Library**: shadcn/ui + Tailwind CSS
+- **State Management**: React Context or Zustand
+- **API Client**: Axios or fetch with SWR
+- **Auth**: JWT token management with refresh
+- **Charts**: Recharts or Chart.js
+
+**Key Features to Implement:**
+1. **Authentication Pages**
+   - Login/Register forms
+   - JWT token storage (localStorage + httpOnly cookies)
+   - Protected routes
+
+2. **Dashboard**
+   - Company selection
+   - CSV upload interface
+   - Analytics results display (KPIs, charts)
+
+3. **Company Management**
+   - Create/edit companies
+   - Manage team members
+   - Role assignment
+
+4. **Analytics Views**
+   - Upload history
+   - Transaction data tables
+   - Interactive charts (revenue, pareto, trends)
+
+### Option 2: Backend Improvements 🔧
+
+Continue refining the backend:
+
+1. **Fix Remaining Tests** (6 failing tests)
+   - Filter assertions in analytics endpoints
+   - Company creation validation
+   - Profile readonly fields
+
+2. **Implement Celery for Async Processing**
+   - Move DatasetGenerationService to background tasks
+   - Add progress tracking
+   - Email notifications on completion
+
+3. **Enhance GabeDA Integration**
+   - Replace mock results with actual GabeDA pipeline
+   - Implement `_extract_kpis()`, `_extract_alerts()`, etc.
+   - Add Dataset metadata scanning
+
+4. **Add More API Features**
+   - Filtering and pagination improvements
+   - Bulk operations
+   - Export to Excel/PDF endpoints
+
+### Option 3: DevOps & Deployment 🚀
+
+Prepare for production:
+
+1. **Docker Setup**
+   - Dockerfile for Django app
+   - Docker Compose (Django + PostgreSQL + Redis + Celery)
+   - nginx configuration
+
+2. **CI/CD Pipeline**
+   - GitHub Actions for testing
+   - Automated deployment
+
+3. **Production Database**
+   - Migrate from SQLite to PostgreSQL
+   - Database migrations strategy
 
 ## Documentation
 
-- [API_DOCUMENTATION.md](API_DOCUMENTATION.md) - Complete API reference
-- [test_api.py](test_api.py) - API usage examples
+- [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) - Complete API reference
+- [docs/BACKEND_TEST_RESULTS.md](docs/BACKEND_TEST_RESULTS.md) - Test suite results
+- [docs/SETUP_INSTRUCTIONS.md](docs/SETUP_INSTRUCTIONS.md) - Setup guide
 - [../khujta_ai_business/ai/executive/requirements_backend_mvp.md](../khujta_ai_business/ai/executive/requirements_backend_mvp.md) - MVP requirements
 - [../khujta_ai_business/ai/architect/backend_technical_design.md](../khujta_ai_business/ai/architect/backend_technical_design.md) - Technical design
-- [../khujta_ai_business/ai/architect/integration_analysis.md](../khujta_ai_business/ai/architect/integration_analysis.md) - GabeDA integration strategy
+
+## Running Tests
+
+```bash
+# All tests
+pytest tests/ -v
+
+# Specific test file
+pytest tests/test_dataset_generation.py -v
+
+# With coverage
+pytest tests/ --cov=apps --cov-report=html
+
+# Only failures
+pytest tests/ --lf
+```
+
+**Current Status**: 64/71 tests passing (90.1%)
 
 ## Support
 

@@ -59,6 +59,7 @@ celerybeat.pid
 .coverage
 htmlcov/
 .tox/
+test_media/
 
 # Logs
 logs/

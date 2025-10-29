@@ -140,3 +140,14 @@ def get_tokens(api_client, user):
             return response.data
         return None
     return _get_tokens
+
+
+def get_results(response_data):
+    """
+    Helper function to get results from paginated or non-paginated response
+    DRF pagination returns {'results': [...], 'count': N, ...}
+    Non-paginated returns [...]
+    """
+    if isinstance(response_data, dict) and 'results' in response_data:
+        return response_data['results']
+    return response_data
