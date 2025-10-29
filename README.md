@@ -1,122 +1,164 @@
-# GabeDA Backend - Django REST API
+# GabeDA Backend
 
-Business Intelligence backend for GabeDA web application.
+Django REST API backend for the GabeDA Business Intelligence platform.
+
+## Overview
+
+Multi-tenant Django backend with JWT authentication, role-based access control, CSV upload functionality, and integration with the GabeDA analytics engine.
+
+### Key Features
+
+- Multi-Tenant Architecture with complete data isolation
+- JWT Authentication (djangorestframework-simplejwt)
+- Role-Based Access Control (Admin, Business Owner, Analyst, Operations Manager)
+- CSV Upload and automated analytics generation
+- RESTful API with comprehensive documentation
+- Django Admin interface for data management
 
 ## Quick Start
 
 ### Prerequisites
-- Python 3.11+
-- Redis (Docker or WSL2)
-- Git
+- Python 3.10+ (currently using 3.12)
+- Virtual environment: `benv` (already created)
+- Redis (optional, for Celery background tasks)
 
-### Setup
+### Run Development Server
 
-```bash
-# Create virtual environment
-python -m venv venv
-.\venv\Scripts\activate  # Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your settings
-
-# Run migrations
-python manage.py migrate
-
-# Create superuser
-python manage.py createsuperuser
-
-# Run development server
+```cmd
+cd C:\Projects\play\gabeda_backend
+benv\Scripts\activate
 python manage.py runserver
 ```
 
-### Run Celery Worker
+**Access:**
+- API: http://127.0.0.1:8000/api
+- Admin: http://127.0.0.1:8000/admin
 
-```bash
-# Terminal 2
-celery -A config worker -l info
+### Create Superuser
+
+```cmd
+python manage.py createsuperuser
 ```
 
-## Project Structure
+Enter:
+- Email: admin@gabeda.com
+- First name: Admin
+- Last name: User
+- Password: (your choice, min 8 characters)
 
+### Test API
+
+```cmd
+python test_api.py
 ```
-gabeda_backend/
-├── apps/
-│   ├── accounts/      # Authentication, Users, Companies
-│   ├── analytics/     # Data Upload, Datasets, Analytics API
-│   └── common/        # Shared utilities
-├── config/            # Django project settings
-│   └── settings/
-│       ├── base.py    # Shared settings
-│       ├── local.py   # SQLite, DEBUG=True
-│       └── production.py  # PostgreSQL, DEBUG=False
-├── media/             # User uploads (CSV files)
-├── static/            # Static files
-├── logs/              # Application logs
-└── manage.py
-```
+
+## Database Models
+
+### Accounts App (7 models total)
+- **User** - Email-based authentication, UUID primary keys
+- **Company** - Multi-tenant companies with JSON column_config
+- **CompanyMember** - User-company relationships with RBAC roles
+
+### Analytics App (4 models total)
+- **DataUpload** - Track CSV uploads and processing status
+- **Transaction** - Individual transaction records (multi-tenant)
+- **Dataset** - Generated datasets from GabeDA pipeline
+- **AnalyticsResult** - KPIs, insights, alerts (role-based visibility)
 
 ## API Endpoints
 
+See [API_DOCUMENTATION.md](API_DOCUMENTATION.md) for complete reference.
+
 ### Authentication
-- `POST /api/auth/register/` - Register new user
-- `POST /api/auth/login/` - Login user (get JWT token)
-- `POST /api/auth/logout/` - Logout user
+- `POST /api/accounts/auth/register/` - Register new user
+- `POST /api/accounts/auth/login/` - Login (get JWT tokens)
+- `POST /api/accounts/auth/token/refresh/` - Refresh access token
+
+### User Profile
+- `GET /api/accounts/profile/` - Get current user profile
+- `PUT /api/accounts/profile/` - Update profile
 
 ### Companies
-- `GET /api/companies/` - List user's companies
-- `POST /api/companies/` - Create new company
-- `GET /api/companies/{id}/` - Get company details
-- `PATCH /api/companies/{id}/` - Update company
-- `POST /api/companies/{id}/invite/` - Invite user to company
+- `GET /api/accounts/companies/` - List user's companies
+- `POST /api/accounts/companies/` - Create company (auto-adds creator as admin)
+- `GET /api/accounts/companies/{id}/` - Get company details
+- `PUT /api/accounts/companies/{id}/` - Update company
+- `DELETE /api/accounts/companies/{id}/` - Delete company
+- `GET /api/accounts/companies/{id}/members/` - List company members
+- `POST /api/accounts/companies/{id}/add_member/` - Add member (admin only)
+- `DELETE /api/accounts/companies/{id}/remove_member/` - Remove member (admin only)
 
-### Data Upload
-- `POST /api/companies/{id}/upload/` - Upload CSV file
-- `GET /api/companies/{id}/uploads/` - List uploads
-- `GET /api/uploads/{id}/status/` - Get upload status
+### Memberships
+- `GET /api/accounts/memberships/` - List user's company memberships
 
-### Dashboards (Role-based)
-- `GET /api/companies/{id}/dashboard/kpis/` - Key metrics
-- `GET /api/companies/{id}/dashboard/alerts/` - Business alerts
-- `GET /api/companies/{id}/dashboard/products/top/` - Top products
-- `GET /api/companies/{id}/dashboard/inventory/` - Inventory health
-- `GET /api/companies/{id}/dashboard/peak-times/` - Peak sales times
+### Analytics (Coming Soon)
+- CSV upload endpoint
+- Dataset retrieval
+- Analytics results
+- Export to Excel/PDF
 
-### Export
-- `GET /api/companies/{id}/export/excel/` - Export to Excel
+## What's Implemented
 
-## Development
+### ✅ Completed (Phase 1 - Week 1-2)
+- Django project setup with split settings (base, local, production)
+- Custom User model (email-based authentication)
+- Company and CompanyMember models (multi-tenancy + RBAC)
+- DataUpload, Transaction, Dataset, AnalyticsResult models
+- Authentication API (register, login, token refresh)
+- Company management API (CRUD + member management)
+- User profile API
+- Django Admin for all models
+- JWT authentication configured
+- GabeDA /src integration path configured
+- API test script (test_api.py)
+- Complete API documentation (API_DOCUMENTATION.md)
 
-### Running Tests
-```bash
-pytest
-```
+### ⏳ In Progress (Phase 1 - Week 3)
+- CSV upload endpoint with validation
+- DatasetGenerationService (bridge to GabeDA /src)
+- Celery tasks for background processing
 
-### Code Formatting
-```bash
-black apps/
-```
+### 📋 Upcoming (Phase 1 - Week 4-6)
+- Analytics API endpoints
+- Dataset retrieval endpoints
+- Role-based analytics filtering
+- Excel/PDF export
+- Basic API tests (pytest)
 
-### Linting
-```bash
-flake8 apps/
-```
+## Next Steps
 
-## Deployment
+To continue with development:
 
-See [Windows Setup Guide](https://github.com/yourorg/khujta_ai_business/blob/main/ai/architect/windows_setup_guide.md) for local development.
-
-For cloud deployment (Railway.app), see deployment guide (coming soon).
+1. **Test Current API**: Run `python test_api.py` to verify authentication and company endpoints
+2. **Create CSV Upload Endpoint**: Implement file upload with validation
+3. **Build DatasetGenerationService**: Integrate with GabeDA `/src` analytics engine
+4. **Add Celery Tasks**: Background processing for dataset generation
+5. **Create Analytics API**: Endpoints for retrieving KPIs, alerts, insights
+6. **Write Tests**: Comprehensive pytest suite
 
 ## Documentation
 
-- [Requirements](https://github.com/yourorg/khujta_ai_business/blob/main/ai/executive/requirements_backend_mvp.md)
-- [Technical Design](https://github.com/yourorg/khujta_ai_business/blob/main/ai/architect/backend_technical_design.md)
-- [Integration Analysis](https://github.com/yourorg/khujta_ai_business/blob/main/ai/architect/integration_analysis.md)
+- [API_DOCUMENTATION.md](API_DOCUMENTATION.md) - Complete API reference
+- [test_api.py](test_api.py) - API usage examples
+- [../khujta_ai_business/ai/executive/requirements_backend_mvp.md](../khujta_ai_business/ai/executive/requirements_backend_mvp.md) - MVP requirements
+- [../khujta_ai_business/ai/architect/backend_technical_design.md](../khujta_ai_business/ai/architect/backend_technical_design.md) - Technical design
+- [../khujta_ai_business/ai/architect/integration_analysis.md](../khujta_ai_business/ai/architect/integration_analysis.md) - GabeDA integration strategy
+
+## Support
+
+**Verify Setup:**
+```cmd
+python manage.py check  # Should return: System check identified no issues
+python manage.py runserver  # Start development server
+python test_api.py  # Test authentication flow
+```
+
+**Access Admin:**
+http://127.0.0.1:8000/admin
+
+**Access API:**
+http://127.0.0.1:8000/api/accounts/
 
 ## License
 
-Proprietary - GabeDA Project
+Proprietary - GabeDA Business Intelligence Platform
