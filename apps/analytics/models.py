@@ -29,10 +29,20 @@ class DataUpload(models.Model):
     row_count = models.IntegerField('row count', null=True, blank=True)
     error_message = models.TextField('error message', blank=True)
 
+    # Processing metadata (stores results from Celery task)
+    processing_metadata = models.JSONField(
+        'processing metadata',
+        null=True,
+        blank=True,
+        help_text='Metadata from processing (transactions created, datasets created, processing time, etc.)'
+    )
+
     # Timestamps
     uploaded_at = models.DateTimeField('uploaded at', default=timezone.now)
     processing_started_at = models.DateTimeField('processing started at', null=True, blank=True)
     processing_completed_at = models.DateTimeField('processing completed at', null=True, blank=True)
+    updated_at = models.DateTimeField('updated at', auto_now=True)
+    updated_at = models.DateTimeField('updated at', auto_now=True)
 
     # Analysis metadata
     analysis_start_date = models.DateField('analysis start date', null=True, blank=True)

@@ -76,25 +76,17 @@ class CSVUploadView(generics.CreateAPIView):
         )
 
         # Process immediately (synchronous for now)
-        # TODO: Move to Celery task for production
-        from .services import DatasetGenerationService
+        # Queue processing task (asynchronous)
+        from .tasks import process_csv_upload
 
-        service = DatasetGenerationService(data_upload)
-        result = service.process()
+        # Queue Celery task (returns immediately)
+        process_csv_upload.delay(str(data_upload.id))
 
-        if result['success']:
-            message = f"File uploaded and processed successfully. {result['transactions_created']} transactions, {result['results_created']} analytics results created."
-        else:
-            message = f"File uploaded but processing failed: {result.get('error', 'Unknown error')}"
-
-        # Refresh data_upload to get updated status
-        data_upload.refresh_from_db()
-
+        # Return immediately with pending status
         return Response(
             {
-                'message': message,
+                'message': 'File uploaded successfully. Processing queued.',
                 'upload': DataUploadSerializer(data_upload).data,
-                'processing_result': result
             },
             status=status.HTTP_201_CREATED
         )
