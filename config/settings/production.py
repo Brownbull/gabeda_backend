@@ -25,16 +25,17 @@ print(f"[DEBUG] CORS_ALLOWED_ORIGINS env var: '{cors_origins}'")
 
 if cors_origins == '*' or not cors_origins:
     # Allow all origins for development
+    # NOTE: Cannot use CORS_ALLOW_CREDENTIALS=True with CORS_ALLOW_ALL_ORIGINS=True
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOWED_ORIGINS = []
-    print("[OK] CORS: Allow all origins (CORS_ALLOW_ALL_ORIGINS = True)")
+    CORS_ALLOW_CREDENTIALS = False  # Must be False when allowing all origins
+    print("[OK] CORS: Allow all origins (CORS_ALLOW_ALL_ORIGINS = True, credentials = False)")
 else:
     # Specific origins only
     CORS_ALLOW_ALL_ORIGINS = False
     CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins.split(',') if origin.strip()]
-    print(f"[OK] CORS: Specific origins: {CORS_ALLOWED_ORIGINS}")
-
-CORS_ALLOW_CREDENTIALS = True
+    CORS_ALLOW_CREDENTIALS = True  # Can allow credentials with specific origins
+    print(f"[OK] CORS: Specific origins: {CORS_ALLOWED_ORIGINS}, credentials = True")
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',
