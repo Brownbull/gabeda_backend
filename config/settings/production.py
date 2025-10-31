@@ -24,12 +24,17 @@ cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', '')
 print(f"[DEBUG] CORS_ALLOWED_ORIGINS env var: '{cors_origins}'")
 
 if cors_origins == '*' or not cors_origins:
-    # Allow all origins for development
-    # NOTE: Cannot use CORS_ALLOW_CREDENTIALS=True with CORS_ALLOW_ALL_ORIGINS=True
-    CORS_ALLOW_ALL_ORIGINS = True
+    # Allow all origins for development using regex
+    import re
+    CORS_ALLOWED_ORIGIN_REGEXES = [
+        r"^http://localhost:\d+$",  # Local development (any port)
+        r"^https://.*\.up\.railway\.app$",  # Railway backend
+        r"^https://.*\.onrender\.com$",  # Render frontend
+    ]
+    CORS_ALLOW_ALL_ORIGINS = False  # Don't use wildcard
     CORS_ALLOWED_ORIGINS = []
-    CORS_ALLOW_CREDENTIALS = False  # Must be False when allowing all origins
-    print("[OK] CORS: Allow all origins (CORS_ALLOW_ALL_ORIGINS = True, credentials = False)")
+    CORS_ALLOW_CREDENTIALS = False
+    print(f"[OK] CORS: Using regex patterns for origins (credentials = False)")
 else:
     # Specific origins only
     CORS_ALLOW_ALL_ORIGINS = False
