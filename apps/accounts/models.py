@@ -86,6 +86,27 @@ class Company(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Chilean tax ID (RUT) - required for company identification
+    # Note: null=True, blank=True temporarily for migration, will be required in API
+    rut = models.CharField(
+        'RUT',
+        max_length=12,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Chilean tax ID (e.g., 12.345.678-9)"
+    )
+    rut_cleaned = models.CharField(
+        'RUT (cleaned)',
+        max_length=9,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="RUT without formatting (e.g., 123456789)"
+    )
+
     name = models.CharField('company name', max_length=255)
     industry = models.CharField(
         'industry',
@@ -132,6 +153,7 @@ class Company(models.Model):
         verbose_name = 'company'
         verbose_name_plural = 'companies'
         indexes = [
+            models.Index(fields=['rut_cleaned']),
             models.Index(fields=['name']),
             models.Index(fields=['created_at']),
         ]

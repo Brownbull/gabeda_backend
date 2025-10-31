@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from .models import User, Company, CompanyMember
+from .utils import validate_rut_field, clean_rut, format_rut
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -49,11 +50,11 @@ class CompanySerializer(serializers.ModelSerializer):
     class Meta:
         model = Company
         fields = [
-            'id', 'name', 'industry', 'location', 'column_config', 'currency',
-            'top_products_threshold', 'dead_stock_days', 'created_at',
-            'created_by', 'created_by_email', 'member_count'
+            'id', 'rut', 'rut_cleaned', 'name', 'industry', 'location',
+            'column_config', 'currency', 'top_products_threshold', 'dead_stock_days',
+            'created_at', 'created_by', 'created_by_email', 'member_count'
         ]
-        read_only_fields = ['id', 'created_at', 'created_by']
+        read_only_fields = ['id', 'rut_cleaned', 'created_at', 'created_by']
 
     def get_member_count(self, obj):
         """Get count of company members"""
@@ -63,26 +64,49 @@ class CompanySerializer(serializers.ModelSerializer):
 class CompanyCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating a company"""
 
+    rut = serializers.CharField(required=True, max_length=12)
+
     class Meta:
         model = Company
         fields = [
-            'name', 'industry', 'location', 'column_config', 'currency',
+            'rut', 'name', 'industry', 'location', 'column_config', 'currency',
             'top_products_threshold', 'dead_stock_days'
         ]
+
+    def validate_rut(self, value):
+        """Validate RUT format and check digit"""
+        cleaned_rut = validate_rut_field(value)
+
+        # Check if RUT already exists
+        if Company.objects.filter(rut_cleaned=cleaned_rut).exists():
+            raise serializers.ValidationError("Una empresa con este RUT ya existe")
+
+        return value
 
     def create(self, validated_data):
         """Create company and add creator as admin member"""
         user = self.context['request'].user
+
+        # Extract and clean RUT
+        rut = validated_data.pop('rut')
+        cleaned_rut = clean_rut(rut)
+        formatted_rut = format_rut(rut)
+
+        # Create company
         company = Company.objects.create(
             created_by=user,
+            rut=formatted_rut,
+            rut_cleaned=cleaned_rut,
             **validated_data
         )
+
         # Add creator as admin member
         CompanyMember.objects.create(
             company=company,
             user=user,
             role='admin'
         )
+
         return company
 
 
