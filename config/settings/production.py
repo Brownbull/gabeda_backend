@@ -19,12 +19,32 @@ DATABASES = {
     )
 }
 
-# CORS Settings - Specific origins only
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
+# CORS Settings - Allow all for development (restrict later)
+cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', '')
+if cors_origins == '*':
+    CORS_ALLOW_ALL_ORIGINS = True
+    CORS_ALLOWED_ORIGINS = []
+else:
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins.split(',') if origin.strip()]
 CORS_ALLOW_CREDENTIALS = True
 
+# Allow all standard headers needed for API calls
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
 # Security Settings
-SECURE_SSL_REDIRECT = True
+# Note: Railway handles SSL termination, so SECURE_SSL_REDIRECT = False
+SECURE_SSL_REDIRECT = False  # Railway provides HTTPS at edge
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_BROWSER_XSS_FILTER = True
@@ -32,8 +52,10 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
 # Static files (Whitenoise for production)
-MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+# Insert Whitenoise after CORS middleware (position 2) to avoid interfering with CORS
+MIDDLEWARE.insert(2, 'whitenoise.middleware.WhiteNoiseMiddleware')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_DIRS = []  # No additional static dirs in production (only app static files)
 
 # Email backend - Production email service
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -43,10 +65,36 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 
-# Logging - More detailed in production
-LOGGING['handlers']['file']['filename'] = BASE_DIR / 'logs' / 'production.log'
-LOGGING['root']['level'] = 'WARNING'
+# Logging - Console only in production (Railway provides log aggregation)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 print("[OK] Production settings loaded")
 print(f"[OK] DEBUG = {DEBUG}")
 print("[OK] Database: PostgreSQL")
+print("[OK] Logging: Console only (file logging disabled)")
