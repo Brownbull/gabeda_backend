@@ -21,15 +21,28 @@ DATABASES = {
 
 # CORS Settings - Allow all for development (restrict later)
 cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', '')
-if cors_origins == '*':
+print(f"[DEBUG] CORS_ALLOWED_ORIGINS env var: '{cors_origins}'")
+
+if cors_origins == '*' or not cors_origins:
+    # Allow all origins for development
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOWED_ORIGINS = []
+    print("[OK] CORS: Allow all origins (CORS_ALLOW_ALL_ORIGINS = True)")
 else:
+    # Specific origins only
     CORS_ALLOW_ALL_ORIGINS = False
     CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins.split(',') if origin.strip()]
-CORS_ALLOW_CREDENTIALS = True
+    print(f"[OK] CORS: Specific origins: {CORS_ALLOWED_ORIGINS}")
 
-# Allow all standard headers needed for API calls
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -41,6 +54,7 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+print(f"[OK] CORS: Allow credentials: {CORS_ALLOW_CREDENTIALS}")
 
 # Security Settings
 # Note: Railway handles SSL termination, so SECURE_SSL_REDIRECT = False
