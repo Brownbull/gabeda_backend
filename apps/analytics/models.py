@@ -10,6 +10,7 @@ class DataUpload(models.Model):
     """
     STATUS_CHOICES = [
         ('pending', 'Pending'),
+        ('validating', 'Validating'),
         ('processing', 'Processing'),
         ('completed', 'Completed'),
         ('failed', 'Failed'),
@@ -41,7 +42,6 @@ class DataUpload(models.Model):
     uploaded_at = models.DateTimeField('uploaded at', default=timezone.now)
     processing_started_at = models.DateTimeField('processing started at', null=True, blank=True)
     processing_completed_at = models.DateTimeField('processing completed at', null=True, blank=True)
-    updated_at = models.DateTimeField('updated at', auto_now=True)
     updated_at = models.DateTimeField('updated at', auto_now=True)
 
     # Analysis metadata
