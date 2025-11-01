@@ -71,6 +71,20 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
+# CSRF Trusted Origins - Required for Django admin and forms
+# Add Railway and Render domains
+csrf_trusted_origins = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+if csrf_trusted_origins:
+    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_trusted_origins.split(',') if origin.strip()]
+else:
+    # Default trusted origins
+    CSRF_TRUSTED_ORIGINS = [
+        'https://*.railway.app',
+        'https://*.up.railway.app',
+        'https://*.onrender.com',
+    ]
+print(f"[OK] CSRF_TRUSTED_ORIGINS: {CSRF_TRUSTED_ORIGINS}")
+
 # Static files (Whitenoise for production)
 # Insert Whitenoise after CORS middleware (position 2) to avoid interfering with CORS
 MIDDLEWARE.insert(2, 'whitenoise.middleware.WhiteNoiseMiddleware')
