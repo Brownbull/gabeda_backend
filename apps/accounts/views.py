@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView
-from django.db.models import Q
+from django.db.models import Q, Count
 from .models import User, Company, CompanyMember
 from .serializers import (
     UserSerializer,
@@ -13,6 +13,7 @@ from .serializers import (
     CompanyMemberSerializer,
     AddCompanyMemberSerializer
 )
+from apps.analytics.models import DataUpload, AnalyticsResult
 
 
 class RegisterView(generics.CreateAPIView):
@@ -141,6 +142,49 @@ class CompanyViewSet(viewsets.ModelViewSet):
                 {'error': 'Member not found.'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+    @action(detail=True, methods=['get'])
+    def stats(self, request, pk=None):
+        """Get company statistics dashboard"""
+        company = self.get_object()
+
+        # Count total uploads
+        total_uploads = DataUpload.objects.filter(company=company).count()
+
+        # Count completed uploads
+        completed_uploads = DataUpload.objects.filter(
+            company=company,
+            status='completed'
+        ).count()
+
+        # Get last upload date
+        last_upload = DataUpload.objects.filter(
+            company=company
+        ).order_by('-uploaded_at').first()
+
+        last_upload_date = last_upload.uploaded_at.isoformat() if last_upload else None
+
+        # Count total members
+        total_members = CompanyMember.objects.filter(company=company).count()
+
+        # Count analytics generated
+        analytics_generated = AnalyticsResult.objects.filter(company=company).count()
+
+        # Get recent uploads
+        recent_uploads = DataUpload.objects.filter(
+            company=company
+        ).order_by('-uploaded_at')[:5].values(
+            'id', 'file_name', 'uploaded_at', 'status'
+        )
+
+        return Response({
+            'total_uploads': total_uploads,
+            'completed_uploads': completed_uploads,
+            'total_members': total_members,
+            'last_upload_date': last_upload_date,
+            'analytics_generated': analytics_generated,
+            'recent_uploads': list(recent_uploads),
+        })
 
 
 class CompanyMemberViewSet(viewsets.ReadOnlyModelViewSet):
