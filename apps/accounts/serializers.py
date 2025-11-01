@@ -7,10 +7,30 @@ from .utils import validate_rut_field, clean_rut, format_rut
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model"""
 
+    company = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'last_name', 'is_active', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = ['id', 'email', 'first_name', 'last_name', 'is_active', 'created_at', 'company']
+        read_only_fields = ['id', 'created_at', 'company']
+
+    def get_company(self, obj):
+        """Get user's primary company (most recent membership)"""
+        membership = obj.memberships.select_related('company').order_by('-joined_at').first()
+        if membership:
+            company = membership.company
+            return {
+                'id': str(company.id),
+                'rut': company.rut,
+                'name': company.name,
+                'industry': company.industry,
+                'industry_display': company.get_industry_display(),
+                'location': company.location,
+                'currency': company.currency,
+                'member_count': company.members.count(),
+                'created_at': company.created_at.isoformat(),
+            }
+        return None
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
