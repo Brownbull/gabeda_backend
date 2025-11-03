@@ -7,14 +7,25 @@ from django.core.files.base import ContentFile
 from django.utils import timezone
 from django.conf import settings
 from apps.accounts.models import CompanyMember
-from .models import DataUpload, Transaction, Dataset, AnalyticsResult
+from .models import (
+    DataUpload, Transaction, Dataset, AnalyticsResult, CompanyConfig,
+    ProcessingJob, ModelResult, DataExport
+)
 from .serializers import (
     DataUploadSerializer,
     CSVUploadSerializer,
     TransactionSerializer,
     DatasetSerializer,
     AnalyticsResultSerializer,
-    AnalyticsResultListSerializer
+    AnalyticsResultListSerializer,
+    CompanyConfigSerializer,
+    ProcessingJobSerializer,
+    ProcessingJobListSerializer,
+    ProcessingJobCreateSerializer,
+    ModelResultSerializer,
+    ModelResultListSerializer,
+    DataExportSerializer,
+    DataExportListSerializer
 )
 import os
 
@@ -319,3 +330,353 @@ class AnalyticsResultViewSet(viewsets.ReadOnlyModelViewSet):
         filtered_data = [item for item in serializer.data if item is not None]
 
         return Response(filtered_data)
+
+
+class CompanyConfigViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing company CSV configuration
+    GET /api/analytics/config/ - List all configs for user's companies
+    GET /api/analytics/config/{id}/ - Get config details
+    POST /api/analytics/config/ - Create new config
+    PUT /api/analytics/config/{id}/ - Update config
+    DELETE /api/analytics/config/{id}/ - Delete config
+    GET /api/analytics/config/by_company/?company_id=xxx - Get config for specific company
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = CompanyConfigSerializer
+
+    def get_queryset(self):
+        """Return configs for companies where user is a member"""
+        user = self.request.user
+        company_ids = CompanyMember.objects.filter(
+            user=user
+        ).values_list('company_id', flat=True)
+
+        return CompanyConfig.objects.filter(
+            company_id__in=company_ids
+        ).select_related('company', 'created_by')
+
+    def perform_create(self, serializer):
+        """Set company and created_by on creation"""
+        company_id = self.request.data.get('company')
+
+        # Check if user is a member of this company
+        member = CompanyMember.objects.filter(
+            company_id=company_id,
+            user=self.request.user
+        ).first()
+
+        if not member:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('You are not a member of this company.')
+
+        # Check if only admin/owner can create config
+        if member.role not in ['admin', 'business_owner']:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Only admins and business owners can create configuration.')
+
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        """Check permissions before update"""
+        instance = self.get_object()
+
+        # Check if user is a member
+        member = CompanyMember.objects.filter(
+            company=instance.company,
+            user=self.request.user
+        ).first()
+
+        if not member:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('You are not a member of this company.')
+
+        # Check if only admin/owner can update config
+        if member.role not in ['admin', 'business_owner']:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Only admins and business owners can update configuration.')
+
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        """Check permissions before delete"""
+        # Check if user is a member
+        member = CompanyMember.objects.filter(
+            company=instance.company,
+            user=self.request.user
+        ).first()
+
+        if not member:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('You are not a member of this company.')
+
+        # Check if only admin can delete config
+        if member.role != 'admin':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Only admins can delete configuration.')
+
+        instance.delete()
+
+    @action(detail=False, methods=['get'])
+    def by_company(self, request):
+        """Get configuration for a specific company"""
+        company_id = request.query_params.get('company_id')
+
+        if not company_id:
+            return Response(
+                {'error': 'company_id parameter is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if user is a member
+        member = CompanyMember.objects.filter(
+            company_id=company_id,
+            user=request.user
+        ).first()
+
+        if not member:
+            return Response(
+                {'error': 'You are not a member of this company.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            config = CompanyConfig.objects.select_related('company', 'created_by').get(
+                company_id=company_id
+            )
+            serializer = self.get_serializer(config)
+            return Response(serializer.data)
+        except CompanyConfig.DoesNotExist:
+            return Response(
+                {'error': 'No configuration found for this company.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class ProcessingJobViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint for viewing processing jobs
+    GET /api/analytics/jobs/ - List all jobs
+    GET /api/analytics/jobs/{id}/ - Get job details
+    POST /api/analytics/jobs/create/ - Start new processing job
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ProcessingJobListSerializer
+        elif self.action == 'create_job':
+            return ProcessingJobCreateSerializer
+        return ProcessingJobSerializer
+
+    def get_queryset(self):
+        """Return jobs for companies where user is a member"""
+        user = self.request.user
+        company_ids = CompanyMember.objects.filter(
+            user=user
+        ).values_list('company_id', flat=True)
+
+        queryset = ProcessingJob.objects.filter(
+            company_id__in=company_ids
+        ).select_related('company', 'upload')
+
+        # Filter by company
+        company_id = self.request.query_params.get('company_id')
+        if company_id:
+            queryset = queryset.filter(company_id=company_id)
+
+        # Filter by upload
+        upload_id = self.request.query_params.get('upload_id')
+        if upload_id:
+            queryset = queryset.filter(upload_id=upload_id)
+
+        # Filter by status
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+
+        return queryset.order_by('-created_at')
+
+    @action(detail=False, methods=['post'])
+    def create_job(self, request):
+        """Create a new processing job"""
+        serializer = ProcessingJobCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        upload_id = serializer.validated_data['upload_id']
+        models_to_execute = serializer.validated_data.get('models_to_execute', [
+            'transactions', 'daily', 'daily_hour', 'weekly', 'monthly',
+            'product_daily', 'product_month', 'customer_daily', 'customer_profile'
+        ])
+
+        # Get upload
+        upload = DataUpload.objects.select_related('company').get(id=upload_id)
+
+        # Check if user is a member
+        member = CompanyMember.objects.filter(
+            company=upload.company,
+            user=request.user
+        ).first()
+
+        if not member:
+            return Response(
+                {'error': 'You are not a member of this company.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Create processing job
+        job = ProcessingJob.objects.create(
+            company=upload.company,
+            upload=upload,
+            models_to_execute=models_to_execute,
+            status='queued'
+        )
+
+        # Queue Celery task
+        from .tasks import process_pipeline
+        task = process_pipeline.delay(str(job.id))
+        job.celery_task_id = task.id
+        job.save(update_fields=['celery_task_id'])
+
+        return Response(
+            {
+                'message': 'Processing job created successfully.',
+                'job': ProcessingJobSerializer(job).data
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+
+class ModelResultViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint for viewing model results
+    GET /api/analytics/results/ - List all results
+    GET /api/analytics/results/{id}/ - Get result details
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ModelResultListSerializer
+        return ModelResultSerializer
+
+    def get_queryset(self):
+        """Return results for companies where user is a member"""
+        user = self.request.user
+        company_ids = CompanyMember.objects.filter(
+            user=user
+        ).values_list('company_id', flat=True)
+
+        queryset = ModelResult.objects.filter(
+            company_id__in=company_ids
+        ).select_related('company', 'job')
+
+        # Filter by company
+        company_id = self.request.query_params.get('company_id')
+        if company_id:
+            queryset = queryset.filter(company_id=company_id)
+
+        # Filter by job
+        job_id = self.request.query_params.get('job_id')
+        if job_id:
+            queryset = queryset.filter(job_id=job_id)
+
+        # Filter by model name
+        model_name = self.request.query_params.get('model_name')
+        if model_name:
+            queryset = queryset.filter(model_name=model_name)
+
+        # Filter by result type
+        result_type = self.request.query_params.get('result_type')
+        if result_type:
+            queryset = queryset.filter(result_type=result_type)
+
+        return queryset.order_by('-created_at')
+
+
+class DataExportViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing data exports
+    GET /api/analytics/exports/ - List all exports
+    GET /api/analytics/exports/{id}/ - Get export details
+    POST /api/analytics/exports/ - Create new export
+    DELETE /api/analytics/exports/{id}/ - Delete export
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return DataExportListSerializer
+        return DataExportSerializer
+
+    def get_queryset(self):
+        """Return exports for companies where user is a member"""
+        user = self.request.user
+        company_ids = CompanyMember.objects.filter(
+            user=user
+        ).values_list('company_id', flat=True)
+
+        queryset = DataExport.objects.filter(
+            company_id__in=company_ids
+        ).select_related('company', 'job', 'requested_by')
+
+        # Filter by company
+        company_id = self.request.query_params.get('company_id')
+        if company_id:
+            queryset = queryset.filter(company_id=company_id)
+
+        # Filter by job
+        job_id = self.request.query_params.get('job_id')
+        if job_id:
+            queryset = queryset.filter(job_id=job_id)
+
+        # Filter by status
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+
+        return queryset.order_by('-created_at')
+
+    def perform_create(self, serializer):
+        """Create export and queue Celery task"""
+        job_id = self.request.data.get('job')
+        job = ProcessingJob.objects.select_related('company').get(id=job_id)
+
+        # Check if user is a member
+        member = CompanyMember.objects.filter(
+            company=job.company,
+            user=self.request.user
+        ).first()
+
+        if not member:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('You are not a member of this company.')
+
+        # Check job is complete
+        if not job.is_complete:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError('Job must be completed before exporting.')
+
+        # Create export
+        export = serializer.save(
+            company=job.company,
+            requested_by=self.request.user
+        )
+
+        # Queue Celery task
+        from .tasks import generate_export
+        task = generate_export.delay(str(export.id))
+        export.celery_task_id = task.id
+        export.save(update_fields=['celery_task_id'])
+
+    def perform_destroy(self, instance):
+        """Delete export file and record"""
+        # Delete file if exists
+        if instance.file_path and default_storage.exists(instance.file_path):
+            default_storage.delete(instance.file_path)
+
+        instance.delete()

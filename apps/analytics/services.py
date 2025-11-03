@@ -426,3 +426,377 @@ class DatasetGenerationService:
                 visible_to_roles=['admin', 'operations_manager']
             )
             self.results_created.append(result)
+
+
+class PipelineExecutionService:
+    """
+    Executes the 9-model GabeDA analytics pipeline.
+
+    This service:
+    1. Sets up GabeDA context and configuration
+    2. Loads Transaction data into context
+    3. Executes each model in sequence (transactions, daily, weekly, etc.)
+    4. Creates ModelResult records for filters and attributes
+    5. Updates ProcessingJob progress in real-time
+
+    Used by: process_pipeline Celery task
+    """
+
+    # Model names in execution order
+    MODEL_NAMES = [
+        'transactions',
+        'daily',
+        'daily_hour',
+        'weekly',
+        'monthly',
+        'product_daily',
+        'product_month',
+        'customer_daily',
+        'customer_profile'
+    ]
+
+    def __init__(self, job):
+        """
+        Initialize service with ProcessingJob instance.
+
+        Args:
+            job (ProcessingJob): ProcessingJob model instance to execute
+        """
+        from .models import ProcessingJob, ModelResult, CompanyConfig
+
+        self.job = job
+        self.company = job.company
+        self.upload = job.upload
+        self.company_config = self._get_company_config()
+
+        # Initialize GabeDA context
+        self.ctx = None
+        self.base_cfg = None
+
+    def _get_company_config(self):
+        """Get company configuration."""
+        from .models import CompanyConfig
+
+        try:
+            return CompanyConfig.objects.get(company=self.company)
+        except CompanyConfig.DoesNotExist:
+            return None
+
+    def _build_base_config(self):
+        """
+        Build base_cfg dictionary for GabeDA execution.
+
+        Returns:
+            dict: Base configuration dictionary
+        """
+        if self.company_config:
+            # Use company-specific configuration
+            base_cfg = self.company_config.get_base_cfg_dict()
+        else:
+            # Use default configuration
+            base_cfg = {
+                'client': self.company.name,
+                'data_schema': {
+                    # Default column mapping (matches Transaction model)
+                    'in_dt': {'source_column': 'date', 'dtype': 'date'},
+                    'in_trans_id': {'source_column': 'transaction_id', 'dtype': 'str'},
+                    'in_product_id': {'source_column': 'product_id', 'dtype': 'str'},
+                    'in_product_desc': {'source_column': 'product_description', 'dtype': 'str'},
+                    'in_quantity': {'source_column': 'quantity', 'dtype': 'float'},
+                    'in_price_total': {'source_column': 'total', 'dtype': 'float'},
+                    'in_cost': {'source_column': 'cost', 'dtype': 'float'},
+                    'in_customer_id': {'source_column': 'customer_id', 'dtype': 'str'},
+                },
+                'default_formats': {
+                    'date': '%Y-%m-%d',
+                    'float': {'thousands': ',', 'decimal': '.'},
+                }
+            }
+
+        return base_cfg
+
+    def _load_transactions_into_context(self):
+        """
+        Load Transaction records into pandas DataFrame.
+
+        Returns:
+            pd.DataFrame: DataFrame with transaction data
+        """
+        # Fetch all transactions for this upload
+        transactions = Transaction.objects.filter(
+            company=self.company,
+            upload=self.upload
+        ).values(
+            'transaction_id', 'date', 'product_id', 'product_description',
+            'quantity', 'unit_price', 'total', 'cost', 'customer_id', 'category',
+            'hour', 'weekday', 'month'
+        )
+
+        # Convert to DataFrame
+        df = pd.DataFrame.from_records(transactions)
+
+        if df.empty:
+            raise ValueError(f"No transactions found for upload {self.upload.id}")
+
+        return df
+
+    def execute(self):
+        """
+        Execute the 9-model analytics pipeline.
+
+        Returns:
+            dict: Processing result with:
+            - success (bool): Whether execution succeeded
+            - models_executed (int): Number of models executed
+            - results_created (int): Number of ModelResult records created
+            - error (str): Error message if failed
+            - traceback (str): Error traceback if failed
+        """
+        from .models import ModelResult
+
+        try:
+            # Step 1: Build configuration
+            self.base_cfg = self._build_base_config()
+
+            # Import GabeDA modules
+            from src.core.context import GabedaContext
+            from src.features.store import FeatureStore
+            from src.features.resolver import DependencyResolver
+            from src.features.analyzer import FeatureAnalyzer
+            from src.execution.groupby import GroupByProcessor
+            from src.execution.executor import ModelExecutor
+
+            self.ctx = GabedaContext(self.base_cfg)
+
+            # Step 2: Load transactions
+            df_transactions = self._load_transactions_into_context()
+            self.ctx.set_dataset('raw_transactions', df_transactions)
+
+            # Step 3: Initialize GabeDA components
+            feature_store = FeatureStore()
+            resolver = DependencyResolver(feature_store)
+            analyzer = FeatureAnalyzer(feature_store)
+            groupby_processor = GroupByProcessor()
+            executor = ModelExecutor(analyzer, groupby_processor, self.ctx)
+
+            # Step 4: Execute each model in sequence
+            models_to_execute = self.job.models_to_execute or self.MODEL_NAMES
+            results_created = 0
+
+            for model_name in models_to_execute:
+                self.job.current_model = model_name
+                self.job.save(update_fields=['current_model'])
+
+                # Build model configuration (simplified - would need actual feature definitions)
+                cfg_model = {
+                    'model_name': model_name,
+                    'exec_seq': [],  # Would be populated from feature definitions
+                    'group_by': None,  # Would be set based on model type
+                }
+
+                # Execute model
+                start_exec = timezone.now()
+
+                try:
+                    output = executor.execute_model(
+                        cfg_model=cfg_model,
+                        input_dataset_name='raw_transactions',
+                        data_in=df_transactions
+                    )
+
+                    # Store model output in context
+                    self.ctx.set_model_output(model_name, output, cfg_model)
+
+                    exec_time_ms = int((timezone.now() - start_exec).total_seconds() * 1000)
+
+                    # Create ModelResult records for filters
+                    if output.get('filters') is not None:
+                        filters_df = output['filters']
+                        ModelResult.objects.create(
+                            company=self.company,
+                            job=self.job,
+                            model_name=model_name,
+                            result_type='filters',
+                            row_count=len(filters_df),
+                            column_count=len(filters_df.columns),
+                            columns=filters_df.columns.tolist(),
+                            data_preview=filters_df.head(10).to_dict(orient='records'),
+                            execution_time_ms=exec_time_ms,
+                        )
+                        results_created += 1
+
+                    # Create ModelResult records for attributes
+                    if output.get('attrs') is not None:
+                        attrs_df = output['attrs']
+                        ModelResult.objects.create(
+                            company=self.company,
+                            job=self.job,
+                            model_name=model_name,
+                            result_type='attrs',
+                            row_count=len(attrs_df),
+                            column_count=len(attrs_df.columns),
+                            columns=attrs_df.columns.tolist(),
+                            data_preview=attrs_df.head(10).to_dict(orient='records'),
+                            execution_time_ms=exec_time_ms,
+                        )
+                        results_created += 1
+
+                    # Update job progress
+                    self.job.add_completed_model(model_name)
+
+                except Exception as model_exc:
+                    # Continue with next model instead of failing entire pipeline
+                    import logging
+                    logging.error(f"Error executing model {model_name}: {model_exc}", exc_info=True)
+                    continue
+
+            return {
+                'success': True,
+                'models_executed': len(self.job.models_completed),
+                'results_created': results_created,
+            }
+
+        except Exception as exc:
+            import traceback as tb
+            error_traceback = tb.format_exc()
+
+            return {
+                'success': False,
+                'error': str(exc),
+                'traceback': error_traceback,
+                'models_executed': len(self.job.models_completed),
+                'results_created': 0,
+            }
+
+
+class ExportGenerationService:
+    """
+    Generates Excel/CSV exports from processing job results.
+
+    This service:
+    1. Fetches ModelResult records for specified models
+    2. Converts to pandas DataFrames
+    3. Generates Excel workbook or CSV files
+    4. Stores files in MEDIA_ROOT/exports/{company_id}/
+    5. Returns download URL
+
+    Used by: generate_export Celery task
+    """
+
+    def __init__(self, export):
+        """
+        Initialize service with DataExport instance.
+
+        Args:
+            export (DataExport): DataExport model instance to generate
+        """
+        from .models import DataExport, ModelResult
+
+        self.export = export
+        self.job = export.job
+        self.company = export.company
+
+    def _build_export_path(self):
+        """
+        Build export file path.
+
+        Returns:
+            Path: Path to export file
+        """
+        from pathlib import Path
+
+        # Create exports directory structure: exports/{company_id}/{job_id}/
+        export_dir = Path(settings.MEDIA_ROOT) / 'exports' / str(self.company.id) / str(self.job.id)
+        export_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate filename
+        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+        ext = 'xlsx' if self.export.export_format == 'excel' else 'csv'
+        filename = f"export_{timestamp}.{ext}"
+
+        return export_dir / filename
+
+    def generate(self):
+        """
+        Generate Excel/CSV export from job results.
+
+        Returns:
+            dict: Export result with:
+            - success (bool): Whether generation succeeded
+            - file_path (str): Path to generated file
+            - file_size_bytes (int): File size in bytes
+            - download_url (str): Download URL
+            - error (str): Error message if failed
+        """
+        from .models import ModelResult
+
+        try:
+            # Step 1: Fetch ModelResult records
+            models_included = self.export.models_included or []
+
+            if not models_included:
+                # Default to all models in job
+                model_results = ModelResult.objects.filter(job=self.job)
+            else:
+                model_results = ModelResult.objects.filter(
+                    job=self.job,
+                    model_name__in=models_included
+                )
+
+            if not model_results.exists():
+                raise ValueError(f"No model results found for job {self.job.id}")
+
+            # Step 2: Build export data
+            export_data = {}
+
+            for result in model_results:
+                sheet_name = f"{result.model_name}_{result.result_type}"
+
+                # Convert data_preview to DataFrame
+                if result.data_preview:
+                    df = pd.DataFrame(result.data_preview)
+                    export_data[sheet_name] = df
+
+            if not export_data:
+                raise ValueError("No data available for export")
+
+            # Step 3: Generate file
+            file_path = self._build_export_path()
+
+            if self.export.export_format == 'excel':
+                # Generate Excel file with multiple sheets
+                with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                    for sheet_name, df in export_data.items():
+                        # Truncate sheet name to 31 characters (Excel limit)
+                        safe_sheet_name = sheet_name[:31]
+                        df.to_excel(writer, sheet_name=safe_sheet_name, index=False)
+
+            elif self.export.export_format == 'csv':
+                # For CSV, combine all data into single file or create zip
+                # For simplicity, using first dataset only
+                first_df = list(export_data.values())[0]
+                first_df.to_csv(file_path, index=False)
+
+            # Step 4: Calculate file size
+            file_size_bytes = file_path.stat().st_size
+
+            # Step 5: Build download URL
+            from pathlib import Path
+            relative_path = file_path.relative_to(settings.MEDIA_ROOT)
+            download_url = f"{settings.MEDIA_URL}{relative_path}".replace('\\', '/')
+
+            return {
+                'success': True,
+                'file_path': str(relative_path),
+                'file_size_bytes': file_size_bytes,
+                'download_url': download_url,
+            }
+
+        except Exception as exc:
+            import logging
+            logging.error(f"Export generation failed for export {self.export.id}: {exc}", exc_info=True)
+
+            return {
+                'success': False,
+                'error': str(exc),
+            }

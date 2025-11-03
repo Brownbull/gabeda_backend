@@ -77,3 +77,4 @@ logs/
 # Database backups
 *.sql
 *.dump
+credentials.txt

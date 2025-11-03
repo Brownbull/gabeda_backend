@@ -8,13 +8,30 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
 
-# Database - SQLite for local development
+# Database - SQLite for local development (PostgreSQL in production)
+# Note: Production uses PostgreSQL. SQLite is used locally due to Windows psycopg3 auth issues.
+import os
+from pathlib import Path
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': Path(__file__).resolve().parent.parent.parent / 'db.sqlite3',
     }
 }
+
+# Uncomment below to use PostgreSQL locally (requires psycopg3 and working Docker PostgreSQL)
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'gabeda_db',
+#         'USER': 'postgres',
+#         'PASSWORD': 'gabeda_dev_password',
+#         'HOST': '127.0.0.1',
+#         'PORT': '5432',
+#         'OPTIONS': {},
+#     }
+# }
 
 # CORS Settings - Allow all origins for local development
 CORS_ALLOW_ALL_ORIGINS = True
@@ -36,4 +53,6 @@ REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = [
 
 print("[OK] Local development settings loaded")
 print(f"[OK] DEBUG = {DEBUG}")
-print(f"[OK] Database: SQLite ({DATABASES['default']['NAME']})")
+db_engine = DATABASES['default']['ENGINE']
+db_name = DATABASES['default'].get('NAME', DATABASES['default'].get('HOST', 'Unknown'))
+print(f"[OK] Database: {db_engine.split('.')[-1].upper()} ({db_name})")
