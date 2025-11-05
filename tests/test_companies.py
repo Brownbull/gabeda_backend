@@ -3,11 +3,20 @@ Test suite for company management endpoints
 """
 import pytest
 from rest_framework import status
-from conftest import get_results
 from apps.accounts.models import Company, CompanyMember
 
 pytestmark = [pytest.mark.companies, pytest.mark.django_db]
 
+
+def get_results(response_data):
+    """
+    Helper function to get results from paginated or non-paginated response
+    DRF pagination returns {'results': [...], 'count': N, ...}
+    Non-paginated returns [...]
+    """
+    if isinstance(response_data, dict) and 'results' in response_data:
+        return response_data['results']
+    return response_data
 
 class TestCompanyCreation:
     """Test company creation endpoint"""
@@ -306,8 +315,9 @@ class TestMemberships:
         assert response.status_code == status.HTTP_200_OK
         results = get_results(response.data)
         assert len(results) >= 1
+        # Compare UUIDs as strings (DRF test client returns UUID objects)
         assert any(
-            m['company'] == str(company_with_admin.id) and m['user'] == str(user.id)
+            str(m['company']) == str(company_with_admin.id) and str(m['user']) == str(user.id)
             for m in results
         )
 

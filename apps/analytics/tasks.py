@@ -13,16 +13,82 @@ import traceback
 logger = logging.getLogger(__name__)
 
 
+def validate_csv_columns(data_upload):
+    """
+    Validate uploaded CSV columns against CompanyConfig schema.
+    
+    Args:
+        data_upload: DataUpload instance with file
+        
+    Returns:
+        tuple: (is_valid, error_message)
+            - (True, None) if validation passes
+            - (False, "error message") if validation fails
+    """
+    from .models import CompanyConfig
+    import pandas as pd
+    
+    try:
+        # Check if company has a configuration
+        try:
+            config = CompanyConfig.objects.get(company=data_upload.company)
+        except CompanyConfig.DoesNotExist:
+            # No config found - skip validation (will use default mapping or require manual mapping)
+            logger.info(f"No CompanyConfig found for company {data_upload.company.name} - skipping validation")
+            return (True, None)
+        
+        logger.info(f"Found CompanyConfig for company {data_upload.company.name}")
+        
+        # Read CSV to get columns
+        try:
+            df = pd.read_csv(data_upload.file.path, nrows=1)  # Just read first row to get columns
+            csv_columns = set(df.columns)
+        except Exception as e:
+            return (False, f"Failed to read CSV file: {str(e)}")
+        
+        # Get expected columns from config
+        expected_columns = set()
+        missing_columns = []
+        
+        for field_name, field_config in config.data_schema.items():
+            source_column = field_config.get('source_column')
+            if source_column:
+                expected_columns.add(source_column)
+                
+                # Check if column exists in CSV
+                if source_column not in csv_columns:
+                    missing_columns.append(source_column)
+        
+        # Check validation result
+        if missing_columns:
+            error_msg = (
+                f"CSV file is missing required columns: {', '.join(sorted(missing_columns))}. "
+                f"Expected columns: {', '.join(sorted(expected_columns))}. "
+                f"Found columns: {', '.join(sorted(csv_columns))}"
+            )
+            return (False, error_msg)
+        
+        logger.info(f"CSV columns validation passed for upload {data_upload.id}")
+        return (True, None)
+        
+    except Exception as e:
+        logger.error(f"Error during column validation: {str(e)}")
+        return (False, f"Validation error: {str(e)}")
+
+
+
 @shared_task(bind=True, max_retries=3)
 def process_csv_upload(self, upload_id):
     """
     Celery task to process uploaded CSV file asynchronously.
 
     This task:
-    1. Updates status to 'processing'
-    2. Calls DatasetGenerationService to run /src analytics pipeline
-    3. Updates status to 'completed' or 'failed' based on result
-    4. Stores processing metadata (transactions created, results created, etc.)
+    1. Creates ProcessingJob record for tracking
+    2. Updates status to 'processing'
+    3. Calls DatasetGenerationService to run /src analytics pipeline
+    4. Updates status to 'completed' or 'failed' based on result
+    5. Stores processing metadata (transactions created, results created, etc.)
+    6. Updates ProcessingJob with final status
 
     Args:
         self: Celery task instance (bind=True)
@@ -35,15 +101,59 @@ def process_csv_upload(self, upload_id):
         Retries up to 3 times with exponential backoff on failure
     """
     logger.info(f"Starting CSV processing for upload {upload_id}")
+    processing_job = None
+    start_time = timezone.now()
 
     try:
         # Get upload record
-        data_upload = DataUpload.objects.get(id=upload_id)
+        data_upload = DataUpload.objects.select_related('company').get(id=upload_id)
         logger.info(f"Found upload record: {data_upload.file_name}")
+
+
+        # Validate CSV columns against CompanyConfig
+        is_valid, validation_error = validate_csv_columns(data_upload)
+        if not is_valid:
+            logger.error(f"CSV validation failed for upload {upload_id}: {validation_error}")
+            data_upload.status = 'failed'
+            data_upload.error_message = validation_error
+            data_upload.save(update_fields=['status', 'error_message', 'updated_at'])
+            
+            # Create failed ProcessingJob for tracking
+            processing_job = ProcessingJob.objects.create(
+                company=data_upload.company,
+                upload=data_upload,
+                celery_task_id=self.request.id,
+                models_to_execute=['csv_processing'],
+                status='failed',
+                error_message=validation_error,
+                started_at=start_time,
+                completed_at=timezone.now()
+            )
+            
+            return {
+                'success': False,
+                'error': validation_error,
+                'upload_id': str(upload_id)
+            }
+        logger.info(f"CSV validation passed for upload {upload_id}")
+
+        # Create ProcessingJob for tracking (visible in /jobs page)
+        processing_job = ProcessingJob.objects.create(
+            company=data_upload.company,
+            upload=data_upload,
+            celery_task_id=self.request.id,
+            models_to_execute=['csv_processing'],
+            status='running',
+            current_model='csv_processing'
+        )
+        processing_job.started_at = start_time
+        processing_job.save(update_fields=['started_at'])
+        logger.info(f"Created ProcessingJob {processing_job.id} for upload {upload_id}")
 
         # Update status to processing
         data_upload.status = 'processing'
-        data_upload.save(update_fields=['status', 'updated_at'])
+        data_upload.processing_started_at = start_time
+        data_upload.save(update_fields=['status', 'processing_started_at', 'updated_at'])
         logger.info(f"Updated status to 'processing' for upload {upload_id}")
 
         # Process the CSV using DatasetGenerationService
@@ -52,28 +162,59 @@ def process_csv_upload(self, upload_id):
 
         # Update status based on result
         if result['success']:
+            completed_at = timezone.now()
+            processing_time = (completed_at - start_time).total_seconds()
+            
             data_upload.status = 'completed'
-            data_upload.processing_completed_at = timezone.now()
+            data_upload.processing_completed_at = completed_at
             data_upload.processing_metadata = {
                 'transactions_created': result.get('transactions_created', 0),
                 'datasets_created': result.get('datasets_created', 0),
                 'results_created': result.get('results_created', 0),
-                'processing_time_seconds': result.get('processing_time_seconds'),
-                'completed_at': timezone.now().isoformat(),
+                'processing_time_seconds': processing_time,
+                'completed_at': completed_at.isoformat(),
             }
+            
+            # Update ProcessingJob to completed
+            if processing_job:
+                processing_job.status = 'completed'
+                processing_job.completed_at = completed_at
+                processing_job.progress = 100
+                processing_job.processing_time_seconds = processing_time
+                processing_job.models_completed = ['csv_processing']
+                processing_job.current_model = None
+                processing_job.save(update_fields=[
+                    'status', 'completed_at', 'progress', 'processing_time_seconds',
+                    'models_completed', 'current_model'
+                ])
+            
             logger.info(
                 f"CSV processing completed successfully for upload {upload_id}: "
                 f"{result.get('transactions_created', 0)} transactions, "
                 f"{result.get('results_created', 0)} results"
             )
         else:
+            failed_at = timezone.now()
+            error_msg = result.get('error', 'Unknown error occurred')
+            
             data_upload.status = 'failed'
-            data_upload.error_message = result.get('error', 'Unknown error occurred')
+            data_upload.error_message = error_msg
             data_upload.processing_metadata = {
-                'error': result.get('error'),
-                'failed_at': timezone.now().isoformat(),
+                'error': error_msg,
+                'failed_at': failed_at.isoformat(),
             }
-            logger.error(f"CSV processing failed for upload {upload_id}: {data_upload.error_message}")
+            
+            # Update ProcessingJob to failed
+            if processing_job:
+                processing_job.status = 'failed'
+                processing_job.completed_at = failed_at
+                processing_job.error_message = error_msg
+                processing_job.current_model = None
+                processing_job.save(update_fields=[
+                    'status', 'completed_at', 'error_message', 'current_model'
+                ])
+            
+            logger.error(f"CSV processing failed for upload {upload_id}: {error_msg}")
 
         data_upload.save(update_fields=['status', 'processing_completed_at', 'processing_metadata', 'error_message', 'updated_at'])
 
@@ -87,17 +228,30 @@ def process_csv_upload(self, upload_id):
     except Exception as exc:
         logger.error(f"Error processing CSV upload {upload_id}: {exc}", exc_info=True)
 
-        # Update upload record with error
+        # Update upload record and ProcessingJob with error
         try:
             data_upload = DataUpload.objects.get(id=upload_id)
+            failed_at = timezone.now()
+            error_msg = f"Processing error: {str(exc)}"
+            
             data_upload.status = 'failed'
-            data_upload.error_message = f"Processing error: {str(exc)}"
+            data_upload.error_message = error_msg
             data_upload.processing_metadata = {
                 'error': str(exc),
-                'failed_at': timezone.now().isoformat(),
+                'failed_at': failed_at.isoformat(),
                 'retry_count': self.request.retries,
             }
             data_upload.save(update_fields=['status', 'error_message', 'processing_metadata', 'updated_at'])
+            
+            # Update ProcessingJob if it was created
+            if processing_job:
+                processing_job.status = 'failed'
+                processing_job.completed_at = failed_at
+                processing_job.error_message = error_msg
+                processing_job.error_traceback = traceback.format_exc()
+                processing_job.save(update_fields=[
+                    'status', 'completed_at', 'error_message', 'error_traceback'
+                ])
         except Exception as save_exc:
             logger.error(f"Failed to update error status for upload {upload_id}: {save_exc}")
 

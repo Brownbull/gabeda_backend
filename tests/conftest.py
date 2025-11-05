@@ -67,6 +67,7 @@ def authenticated_client(api_client, user):
 def company_data():
     """Sample company data"""
     return {
+        'rut': '12.345.678-5',  # Valid Chilean RUT with correct check digit
         'name': 'Test Company',
         'industry': 'retail',
         'location': 'Santiago, Chile',
@@ -109,10 +110,10 @@ def company(create_company, user):
 @pytest.fixture
 def company_with_admin(company, user):
     """Create a company with user as admin member"""
-    CompanyMember.objects.create(
+    CompanyMember.objects.get_or_create(
         company=company,
         user=user,
-        role='admin'
+        defaults={'role': 'admin'}
     )
     return company
 
@@ -120,10 +121,10 @@ def company_with_admin(company, user):
 @pytest.fixture
 def company_with_analyst(company, user):
     """Create a company with user as analyst member"""
-    CompanyMember.objects.create(
+    CompanyMember.objects.get_or_create(
         company=company,
         user=user,
-        role='analyst'
+        defaults={'role': 'analyst'}
     )
     return company
 

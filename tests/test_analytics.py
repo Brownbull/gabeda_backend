@@ -4,11 +4,20 @@ Test suite for analytics endpoints
 import pytest
 import io
 from rest_framework import status
-from conftest import get_results
 from django.core.files.uploadedfile import SimpleUploadedFile
 from apps.analytics.models import DataUpload, Transaction, Dataset, AnalyticsResult
 
 pytestmark = [pytest.mark.analytics, pytest.mark.django_db]
+
+def get_results(response_data):
+    """
+    Helper function to get results from paginated or non-paginated response
+    DRF pagination returns {'results': [...], 'count': N, ...}
+    Non-paginated returns [...]
+    """
+    if isinstance(response_data, dict) and 'results' in response_data:
+        return response_data['results']
+    return response_data
 
 
 @pytest.fixture
@@ -60,16 +69,17 @@ class TestCSVUpload:
         )
 
         assert response.status_code == status.HTTP_201_CREATED
-        assert 'message' in response.data
-        assert 'upload' in response.data
+        # API returns DataUpload object directly
+        assert 'id' in response.data
+        assert 'file_name' in response.data
+        assert 'status' in response.data
 
-        # Status should be 'completed' since processing is synchronous
-        assert response.data['upload']['status'] == 'completed'
-        assert 'processing_result' in response.data
-        assert response.data['processing_result']['success'] is True
+        # Status should be 'pending' since processing is asynchronous (Celery)
+        assert response.data['status'] == 'pending'
+        assert response.data['file_name'] == csv_file.name
 
         # Verify DataUpload was created
-        upload_id = response.data['upload']['id']
+        upload_id = response.data['id']
         assert DataUpload.objects.filter(id=upload_id).exists()
 
     def test_upload_csv_unauthenticated(self, api_client, company_with_admin, csv_file):
@@ -170,7 +180,8 @@ class TestDataUploadList:
         assert response.status_code == status.HTTP_200_OK
         results = get_results(response.data)
         assert len(results) >= 1
-        assert all(u['company'] == str(company_with_admin.id) for u in results)
+        # Compare UUIDs directly (DRF test client returns UUID objects, not strings)
+        assert all(str(u['company']) == str(company_with_admin.id) for u in results)
 
 
 class TestDataUploadDetail:
@@ -242,7 +253,8 @@ class TestTransactionList:
 
         assert response.status_code == status.HTTP_200_OK
         results = get_results(response.data)
-        assert all(t['company'] == str(company_with_admin.id) for t in results)
+        # Compare UUIDs as strings (DRF test client returns UUID objects)
+        assert all(str(t['company']) == str(company_with_admin.id) for t in results)
 
     def test_list_transactions_filter_by_date_range(self, authenticated_client, transaction):
         """Test filtering transactions by date range"""

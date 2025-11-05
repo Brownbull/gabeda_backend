@@ -262,7 +262,7 @@ class ProcessingJobListSerializer(serializers.ModelSerializer):
         model = ProcessingJob
         fields = [
             'id', 'company', 'company_name', 'status', 'status_display',
-            'progress', 'current_model', 'created_at'
+            'progress', 'current_model', 'models_to_execute', 'models_completed', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 

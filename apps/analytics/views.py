@@ -93,13 +93,12 @@ class CSVUploadView(generics.CreateAPIView):
         # Queue Celery task (returns immediately)
         process_csv_upload.delay(str(data_upload.id))
 
-        # Return immediately with pending status
+        # Return immediately with pending status (direct serialization for consistency)
+        serializer_output = DataUploadSerializer(data_upload)
         return Response(
-            {
-                'message': 'File uploaded successfully. Processing queued.',
-                'upload': DataUploadSerializer(data_upload).data,
-            },
-            status=status.HTTP_201_CREATED
+            serializer_output.data,
+            status=status.HTTP_201_CREATED,
+            headers={'Location': f'/api/analytics/uploads/{data_upload.id}/'}
         )
 
 
@@ -114,8 +113,14 @@ class DataUploadViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = DataUploadSerializer
 
     def get_queryset(self):
-        """Return uploads for companies where user is a member"""
+        """Return uploads for companies where user is a member (or all if superuser)"""
         user = self.request.user
+
+        # Superusers/staff can see all uploads
+        if user.is_staff or user.is_superuser:
+            return DataUpload.objects.all().select_related('company', 'uploaded_by').order_by('-uploaded_at')
+
+        # Regular users only see uploads for their companies
         company_ids = CompanyMember.objects.filter(
             user=user
         ).values_list('company_id', flat=True)
@@ -376,7 +381,7 @@ class CompanyConfigViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied('Only admins and business owners can create configuration.')
 
-        serializer.save(created_by=self.request.user)
+        serializer.save(company_id=company_id, created_by=self.request.user)
 
     def perform_update(self, serializer):
         """Check permissions before update"""
@@ -472,15 +477,21 @@ class ProcessingJobViewSet(viewsets.ReadOnlyModelViewSet):
         return ProcessingJobSerializer
 
     def get_queryset(self):
-        """Return jobs for companies where user is a member"""
+        """Return jobs for companies where user is a member (or all if superuser)"""
         user = self.request.user
-        company_ids = CompanyMember.objects.filter(
-            user=user
-        ).values_list('company_id', flat=True)
 
-        queryset = ProcessingJob.objects.filter(
-            company_id__in=company_ids
-        ).select_related('company', 'upload')
+        # Superusers/staff can see all jobs
+        if user.is_staff or user.is_superuser:
+            queryset = ProcessingJob.objects.all().select_related('company', 'upload')
+        else:
+            # Regular users only see jobs for their companies
+            company_ids = CompanyMember.objects.filter(
+                user=user
+            ).values_list('company_id', flat=True)
+
+            queryset = ProcessingJob.objects.filter(
+                company_id__in=company_ids
+            ).select_related('company', 'upload')
 
         # Filter by company
         company_id = self.request.query_params.get('company_id')

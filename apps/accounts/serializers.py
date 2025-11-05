@@ -12,7 +12,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'is_active', 'created_at', 'company']
-        read_only_fields = ['id', 'created_at', 'company']
+        read_only_fields = ['id', 'email', 'created_at', 'is_active', 'company']
 
     def get_company(self, obj):
         """Get user's primary company (most recent membership)"""
@@ -89,9 +89,10 @@ class CompanyCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Company
         fields = [
-            'rut', 'name', 'industry', 'location', 'column_config', 'currency',
+            'id', 'rut', 'name', 'industry', 'location', 'column_config', 'currency',
             'top_products_threshold', 'dead_stock_days'
         ]
+        read_only_fields = ['id']
 
     def validate_rut(self, value):
         """Validate RUT format and check digit"""

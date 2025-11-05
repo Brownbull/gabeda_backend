@@ -1,0 +1,256 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-7.4.3, pluggy-1.6.0 -- C:\Projects\play\gabeda_backend\benv\Scripts\python.exe
+cachedir: .pytest_cache
+django: version: 5.2.7, settings: config.settings.local (from ini)
+rootdir: C:\Projects\play\gabeda_backend
+configfile: pytest.ini
+plugins: Faker-37.12.0, cov-7.0.0, django-4.7.0
+collecting ... collected 111 items
+
+tests/test_analytics.py::TestCSVUpload::test_upload_csv_success FAILED   [  0%]
+tests/test_analytics.py::TestCSVUpload::test_upload_csv_unauthenticated PASSED [  1%]
+tests/test_analytics.py::TestCSVUpload::test_upload_csv_non_member PASSED [  2%]
+tests/test_analytics.py::TestCSVUpload::test_upload_invalid_file_type PASSED [  3%]
+tests/test_analytics.py::TestCSVUpload::test_upload_empty_file PASSED    [  4%]
+tests/test_analytics.py::TestCSVUpload::test_upload_missing_file PASSED  [  5%]
+tests/test_analytics.py::TestDataUploadList::test_list_uploads_success PASSED [  6%]
+tests/test_analytics.py::TestDataUploadList::test_list_uploads_empty PASSED [  7%]
+tests/test_analytics.py::TestDataUploadList::test_list_uploads_unauthenticated PASSED [  8%]
+tests/test_analytics.py::TestDataUploadList::test_list_uploads_by_company FAILED [  9%]
+tests/test_analytics.py::TestDataUploadDetail::test_get_upload_detail_success PASSED [  9%]
+tests/test_analytics.py::TestDataUploadDetail::test_get_upload_detail_non_member PASSED [ 10%]
+tests/test_analytics.py::TestTransactionList::test_list_transactions_success PASSED [ 11%]
+tests/test_analytics.py::TestTransactionList::test_list_transactions_filter_by_company FAILED [ 12%]
+tests/test_analytics.py::TestTransactionList::test_list_transactions_filter_by_date_range PASSED [ 13%]
+tests/test_analytics.py::TestDatasetList::test_list_datasets_success PASSED [ 14%]
+tests/test_analytics.py::TestDatasetList::test_list_datasets_filter_by_type PASSED [ 15%]
+tests/test_analytics.py::TestAnalyticsResults::test_list_results_success PASSED [ 16%]
+tests/test_analytics.py::TestAnalyticsResults::test_list_results_role_filtering_admin PASSED [ 17%]
+tests/test_analytics.py::TestAnalyticsResults::test_list_results_role_filtering_analyst ERROR [ 18%]
+tests/test_analytics.py::TestAnalyticsResults::test_get_results_by_type PASSED [ 18%]
+tests/test_analytics.py::TestAnalyticsResults::test_get_results_by_type_missing_param PASSED [ 19%]
+tests/test_authentication.py::TestUserRegistration::test_register_user_success PASSED [ 20%]
+tests/test_authentication.py::TestUserRegistration::test_register_user_duplicate_email PASSED [ 21%]
+tests/test_authentication.py::TestUserRegistration::test_register_user_password_mismatch PASSED [ 22%]
+tests/test_authentication.py::TestUserRegistration::test_register_user_weak_password PASSED [ 23%]
+tests/test_authentication.py::TestUserRegistration::test_register_user_missing_fields PASSED [ 24%]
+tests/test_authentication.py::TestUserLogin::test_login_success PASSED   [ 25%]
+tests/test_authentication.py::TestUserLogin::test_login_wrong_password PASSED [ 26%]
+tests/test_authentication.py::TestUserLogin::test_login_nonexistent_user PASSED [ 27%]
+tests/test_authentication.py::TestUserLogin::test_login_missing_credentials PASSED [ 27%]
+tests/test_authentication.py::TestTokenRefresh::test_refresh_token_success PASSED [ 28%]
+tests/test_authentication.py::TestTokenRefresh::test_refresh_token_invalid PASSED [ 29%]
+tests/test_authentication.py::TestUserProfile::test_get_profile_authenticated PASSED [ 30%]
+tests/test_authentication.py::TestUserProfile::test_get_profile_unauthenticated PASSED [ 31%]
+tests/test_authentication.py::TestUserProfile::test_update_profile_success PASSED [ 32%]
+tests/test_authentication.py::TestUserProfile::test_update_profile_readonly_fields FAILED [ 33%]
+tests/test_companies.py::TestCompanyCreation::test_create_company_success FAILED [ 34%]
+tests/test_companies.py::TestCompanyCreation::test_create_company_unauthenticated PASSED [ 35%]
+tests/test_companies.py::TestCompanyCreation::test_create_company_missing_fields PASSED [ 36%]
+tests/test_companies.py::TestCompanyCreation::test_create_company_invalid_industry PASSED [ 36%]
+tests/test_companies.py::TestCompanyList::test_list_companies_authenticated PASSED [ 37%]
+tests/test_companies.py::TestCompanyList::test_list_companies_empty PASSED [ 38%]
+tests/test_companies.py::TestCompanyList::test_list_companies_unauthenticated PASSED [ 39%]
+tests/test_companies.py::TestCompanyList::test_list_companies_excludes_non_member_companies PASSED [ 40%]
+tests/test_companies.py::TestCompanyDetail::test_get_company_detail_success PASSED [ 41%]
+tests/test_companies.py::TestCompanyDetail::test_get_company_detail_non_member PASSED [ 42%]
+tests/test_companies.py::TestCompanyUpdate::test_update_company_success PASSED [ 43%]
+tests/test_companies.py::TestCompanyUpdate::test_update_company_non_member PASSED [ 44%]
+tests/test_companies.py::TestCompanyDelete::test_delete_company_success PASSED [ 45%]
+tests/test_companies.py::TestCompanyDelete::test_delete_company_non_member PASSED [ 45%]
+tests/test_companies.py::TestCompanyMembers::test_list_company_members PASSED [ 46%]
+tests/test_companies.py::TestCompanyMembers::test_add_member_success PASSED [ 47%]
+tests/test_companies.py::TestCompanyMembers::test_add_member_non_admin PASSED [ 48%]
+tests/test_companies.py::TestCompanyMembers::test_add_member_nonexistent_user PASSED [ 49%]
+tests/test_companies.py::TestCompanyMembers::test_add_member_duplicate PASSED [ 50%]
+tests/test_companies.py::TestCompanyMembers::test_remove_member_success PASSED [ 51%]
+tests/test_companies.py::TestCompanyMembers::test_remove_member_non_admin PASSED [ 52%]
+tests/test_companies.py::TestMemberships::test_list_memberships FAILED   [ 53%]
+tests/test_companies.py::TestMemberships::test_list_memberships_empty PASSED [ 54%]
+tests/test_dataset_generation.py::TestDatasetGenerationService::test_service_initialization PASSED [ 54%]
+tests/test_dataset_generation.py::TestDatasetGenerationService::test_load_csv PASSED [ 55%]
+tests/test_dataset_generation.py::TestDatasetGenerationService::test_validate_and_map_columns PASSED [ 56%]
+tests/test_dataset_generation.py::TestDatasetGenerationService::test_save_transactions PASSED [ 57%]
+tests/test_dataset_generation.py::TestDatasetGenerationService::test_generate_mock_results PASSED [ 58%]
+tests/test_dataset_generation.py::TestDatasetGenerationService::test_save_analytics_results PASSED [ 59%]
+tests/test_dataset_generation.py::TestDatasetGenerationService::test_process_full_pipeline PASSED [ 60%]
+tests/test_dataset_generation.py::TestDatasetGenerationService::test_process_handles_errors PASSED [ 61%]
+tests/test_dataset_generation.py::TestCSVUploadIntegration::test_csv_upload_triggers_processing FAILED [ 62%]
+tests/api/test_processing_job_api.py::TestProcessingJobAPI::test_list_jobs_requires_authentication PASSED [ 63%]
+tests/api/test_processing_job_api.py::TestProcessingJobAPI::test_list_jobs_success PASSED [ 63%]
+tests/api/test_processing_job_api.py::TestProcessingJobAPI::test_create_job_requires_authentication PASSED [ 64%]
+tests/api/test_processing_job_api.py::TestProcessingJobAPI::test_create_job_success PASSED [ 65%]
+tests/api/test_processing_job_api.py::TestProcessingJobAPI::test_create_job_validates_upload_status PASSED [ 66%]
+tests/api/test_superuser_permissions.py::TestSuperuserPermissions::test_superuser_can_access_any_upload PASSED [ 67%]
+tests/api/test_superuser_permissions.py::TestSuperuserPermissions::test_superuser_can_list_all_uploads PASSED [ 68%]
+tests/api/test_superuser_permissions.py::TestSuperuserPermissions::test_regular_user_cannot_access_other_company_upload PASSED [ 69%]
+tests/api/test_superuser_permissions.py::TestSuperuserPermissions::test_staff_user_can_access_any_upload PASSED [ 70%]
+tests/api/test_superuser_permissions.py::TestSuperuserPermissions::test_superuser_can_access_job_from_any_company PASSED [ 71%]
+tests/api/test_upload_edge_cases.py::TestUploadEdgeCases::test_upload_empty_file PASSED [ 72%]
+tests/api/test_upload_edge_cases.py::TestUploadEdgeCases::test_upload_non_csv_file PASSED [ 72%]
+tests/api/test_upload_edge_cases.py::TestUploadEdgeCases::test_upload_csv_with_special_characters PASSED [ 73%]
+tests/api/test_upload_edge_cases.py::TestUploadEdgeCases::test_upload_csv_with_missing_values PASSED [ 74%]
+tests/api/test_upload_edge_cases.py::TestUploadEdgeCases::test_upload_without_authentication PASSED [ 75%]
+tests/api/test_upload_edge_cases.py::TestUploadEdgeCases::test_upload_to_nonexistent_company PASSED [ 76%]
+tests/api/test_upload_edge_cases.py::TestUploadEdgeCases::test_upload_csv_with_inconsistent_columns PASSED [ 77%]
+tests/api/test_upload_edge_cases.py::TestJobCreationEdgeCases::test_create_job_with_invalid_model_names PASSED [ 78%]
+tests/api/test_upload_edge_cases.py::TestJobCreationEdgeCases::test_create_job_with_empty_models_list PASSED [ 79%]
+tests/api/test_upload_edge_cases.py::TestJobCreationEdgeCases::test_create_job_with_duplicate_model_names PASSED [ 80%]
+tests/api/test_upload_edge_cases.py::TestJobCreationEdgeCases::test_create_job_with_missing_upload_id PASSED [ 81%]
+tests/api/test_upload_edge_cases.py::TestJobCreationEdgeCases::test_create_job_with_invalid_upload_id PASSED [ 81%]
+tests/api/test_upload_edge_cases.py::TestJobCreationEdgeCases::test_job_status_for_nonexistent_job PASSED [ 82%]
+tests/api/test_upload_edge_cases.py::TestJobCreationEdgeCases::test_concurrent_job_execution PASSED [ 83%]
+tests/api/test_upload_edge_cases.py::TestJobCreationEdgeCases::test_job_progress_calculation_accuracy PASSED [ 84%]
+tests/integration/test_upload_workflow.py::TestUploadWorkflow::test_complete_workflow_upload_to_job_creation PASSED [ 85%]
+tests/integration/test_upload_workflow.py::TestUploadWorkflow::test_upload_invalid_csv_format PASSED [ 86%]
+tests/integration/test_upload_workflow.py::TestUploadWorkflow::test_upload_without_company_membership PASSED [ 87%]
+tests/integration/test_upload_workflow.py::TestUploadWorkflow::test_create_job_for_pending_upload PASSED [ 88%]
+tests/integration/test_upload_workflow.py::TestUploadWorkflow::test_duplicate_job_creation PASSED [ 89%]
+tests/integration/test_upload_workflow.py::TestUploadWorkflow::test_job_status_polling PASSED [ 90%]
+tests/integration/test_upload_workflow.py::TestUploadWorkflow::test_large_csv_upload PASSED [ 90%]
+tests/unit/analytics/test_models.py::TestDataUploadModel::test_create_data_upload_success PASSED [ 91%]
+tests/unit/analytics/test_models.py::TestDataUploadModel::test_status_choices PASSED [ 92%]
+tests/unit/analytics/test_models.py::TestProcessingJobModel::test_add_completed_model_updates_progress PASSED [ 93%]
+tests/unit/analytics/test_models.py::TestProcessingJobModel::test_is_complete_property PASSED [ 94%]
+tests/unit/analytics/test_services.py::TestDatasetGenerationService::test_get_company_config_exists PASSED [ 95%]
+tests/unit/analytics/test_services.py::TestDatasetGenerationService::test_process_updates_status_to_processing PASSED [ 96%]
+tests/unit/analytics/test_services.py::TestPipelineExecutionService::test_build_base_config_default PASSED [ 97%]
+tests/unit/analytics/test_services.py::TestPipelineExecutionService::test_load_transactions_into_context_creates_dataframe PASSED [ 98%]
+tests/test_api.py::test_authentication PASSED                            [ 99%]
+tests/test_api.py::test_api_documentation PASSED                         [100%]
+
+=================================== ERRORS ====================================
+_ ERROR at setup of TestAnalyticsResults.test_list_results_role_filtering_analyst _
+benv\Lib\site-packages\django\db\backends\utils.py:105: in _execute
+    return self.cursor.execute(sql, params)
+benv\Lib\site-packages\django\db\backends\sqlite3\base.py:360: in execute
+    return super().execute(query, params)
+E   sqlite3.IntegrityError: UNIQUE constraint failed: company_members.company_id, company_members.user_id
+
+The above exception was the direct cause of the following exception:
+tests\conftest.py:112: in company_with_admin
+    CompanyMember.objects.create(
+benv\Lib\site-packages\django\db\models\manager.py:87: in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+benv\Lib\site-packages\django\db\models\query.py:663: in create
+    obj.save(force_insert=True, using=self.db)
+benv\Lib\site-packages\django\db\models\base.py:902: in save
+    self.save_base(
+benv\Lib\site-packages\django\db\models\base.py:1008: in save_base
+    updated = self._save_table(
+benv\Lib\site-packages\django\db\models\base.py:1169: in _save_table
+    results = self._do_insert(
+benv\Lib\site-packages\django\db\models\base.py:1210: in _do_insert
+    return manager._insert(
+benv\Lib\site-packages\django\db\models\manager.py:87: in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+benv\Lib\site-packages\django\db\models\query.py:1868: in _insert
+    return query.get_compiler(using=using).execute_sql(returning_fields)
+benv\Lib\site-packages\django\db\models\sql\compiler.py:1882: in execute_sql
+    cursor.execute(sql, params)
+benv\Lib\site-packages\django\db\backends\utils.py:79: in execute
+    return self._execute_with_wrappers(
+benv\Lib\site-packages\django\db\backends\utils.py:92: in _execute_with_wrappers
+    return executor(sql, params, many, context)
+benv\Lib\site-packages\django\db\backends\utils.py:100: in _execute
+    with self.db.wrap_database_errors:
+benv\Lib\site-packages\django\db\utils.py:91: in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+benv\Lib\site-packages\django\db\backends\utils.py:105: in _execute
+    return self.cursor.execute(sql, params)
+benv\Lib\site-packages\django\db\backends\sqlite3\base.py:360: in execute
+    return super().execute(query, params)
+E   django.db.utils.IntegrityError: UNIQUE constraint failed: company_members.company_id, company_members.user_id
+================================== FAILURES ===================================
+____________________ TestCSVUpload.test_upload_csv_success ____________________
+tests\test_analytics.py:76: in test_upload_csv_success
+    assert response.data['upload']['status'] == 'completed'
+E   AssertionError: assert 'pending' == 'completed'
+E     - completed
+E     + pending
+---------------------------- Captured stdout setup ----------------------------
+Operations to perform:
+  Synchronize unmigrated apps: corsheaders, django_extensions, messages, rest_framework, rest_framework_simplejwt, staticfiles
+  Apply all migrations: accounts, admin, analytics, auth, contenttypes, sessions
+Synchronizing apps without migrations:
+  Creating tables...
+    Running deferred SQL...
+Running migrations:
+  Applying contenttypes.0001_initial... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying auth.0001_initial... OK
+  Applying auth.0002_alter_permission_name_max_length... OK
+  Applying auth.0003_alter_user_email_max_length... OK
+  Applying auth.0004_alter_user_username_opts... OK
+  Applying auth.0005_alter_user_last_login_null... OK
+  Applying auth.0006_require_contenttypes_0002... OK
+  Applying auth.0007_alter_validators_add_error_messages... OK
+  Applying auth.0008_alter_user_username_max_length... OK
+  Applying auth.0009_alter_user_last_name_max_length... OK
+  Applying auth.0010_alter_group_name_max_length... OK
+  Applying auth.0011_update_proxy_permissions... OK
+  Applying auth.0012_alter_user_first_name_max_length... OK
+  Applying accounts.0001_initial... OK
+  Applying accounts.0002_add_rut_to_company... OK
+  Applying admin.0001_initial... OK
+  Applying admin.0002_logentry_remove_auto_add... OK
+  Applying admin.0003_logentry_add_action_flag_choices... OK
+  Applying analytics.0001_initial... OK
+  Applying analytics.0002_dataupload_processing_metadata_dataupload_updated_at... OK
+  Applying analytics.0003_alter_analyticsresult_visible_to_roles_and_more... OK
+  Applying analytics.0004_processingjob_modelresult_dataexport_and_more... OK
+  Applying sessions.0001_initial... OK
+---------------------------- Captured stderr setup ----------------------------
+Using existing test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+_______________ TestDataUploadList.test_list_uploads_by_company _______________
+tests\test_analytics.py:182: in test_list_uploads_by_company
+    assert all(u['company'] == str(company_with_admin.id) for u in results)
+E   assert False
+E    +  where False = all(<generator object TestDataUploadList.test_list_uploads_by_company.<locals>.<genexpr> at 0x0000021262D0E890>)
+________ TestTransactionList.test_list_transactions_filter_by_company _________
+tests\test_analytics.py:254: in test_list_transactions_filter_by_company
+    assert all(t['company'] == str(company_with_admin.id) for t in results)
+E   assert False
+E    +  where False = all(<generator object TestTransactionList.test_list_transactions_filter_by_company.<locals>.<genexpr> at 0x0000021262D0DE40>)
+_____________ TestUserProfile.test_update_profile_readonly_fields _____________
+tests\test_authentication.py:178: in test_update_profile_readonly_fields
+    assert user.email == original_email
+E   AssertionError: assert 'newemail@example.com' == 'user@example.com'
+E     - user@example.com
+E     + newemail@example.com
+_______________ TestCompanyCreation.test_create_company_success _______________
+tests\test_companies.py:28: in test_create_company_success
+    assert response.status_code == status.HTTP_201_CREATED
+E   assert 400 == 201
+E    +  where 400 = <Response status_code=400, "application/json">.status_code
+E    +  and   201 = status.HTTP_201_CREATED
+---------------------------- Captured stderr call -----------------------------
+WARNING 2025-11-03 17:54:04,117 log Bad Request: /api/accounts/companies/
+------------------------------ Captured log call ------------------------------
+WARNING  django.request:log.py:253 Bad Request: /api/accounts/companies/
+____________________ TestMemberships.test_list_memberships ____________________
+tests\test_companies.py:318: in test_list_memberships
+    assert any(
+E   assert False
+E    +  where False = any(<generator object TestMemberships.test_list_memberships.<locals>.<genexpr> at 0x0000021262D0DC60>)
+________ TestCSVUploadIntegration.test_csv_upload_triggers_processing _________
+tests\test_dataset_generation.py:243: in test_csv_upload_triggers_processing
+    assert 'processing_result' in response.data
+E   assert 'processing_result' in {'message': 'File uploaded successfully. Processing queued.', 'upload': {'id': '7c85ca8a-e027-48e6-bda3-d595fd1a9de2', 'company': UUID('b28e5bc6-8844-47ad-8c9e-f0683c2dc438'), 'company_name': 'Test Company', 'uploaded_by': UUID('6ec42bf6-6455-4a3c-a258-54ccbdc9f53c'), 'uploaded_by_email': 'user@example.com', 'file_name': 'test_transactions.csv', 'file_size': 275, 'file_path': 'uploads/b28e5bc6-8844-47ad-8c9e-f0683c2dc438/20251103_205416_test_transactions.csv', 'status': 'pending', 'status_display': 'Pending', 'row_count': None, 'error_message': '', 'uploaded_at': '2025-11-03T17:54:16.994806-03:00', 'processing_started_at': None, 'processing_completed_at': None, 'analysis_start_date': None, 'analysis_end_date': None}}
+E    +  where {'message': 'File uploaded successfully. Processing queued.', 'upload': {'id': '7c85ca8a-e027-48e6-bda3-d595fd1a9de2', 'company': UUID('b28e5bc6-8844-47ad-8c9e-f0683c2dc438'), 'company_name': 'Test Company', 'uploaded_by': UUID('6ec42bf6-6455-4a3c-a258-54ccbdc9f53c'), 'uploaded_by_email': 'user@example.com', 'file_name': 'test_transactions.csv', 'file_size': 275, 'file_path': 'uploads/b28e5bc6-8844-47ad-8c9e-f0683c2dc438/20251103_205416_test_transactions.csv', 'status': 'pending', 'status_display': 'Pending', 'row_count': None, 'error_message': '', 'uploaded_at': '2025-11-03T17:54:16.994806-03:00', 'processing_started_at': None, 'processing_completed_at': None, 'analysis_start_date': None, 'analysis_end_date': None}} = <Response status_code=201, "application/json">.data
+============================== warnings summary ===============================
+tests/test_analytics.py::TestCSVUpload::test_upload_csv_success
+  C:\Projects\play\gabeda_backend\benv\Lib\site-packages\rest_framework\urlpatterns.py:108: RemovedInDjango60Warning: Converter 'drf_format_suffix' is already registered. Support for overriding registered converters is deprecated and will be removed in Django 6.0.
+    register_converter(suffix_converter, converter_name)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_analytics.py::TestCSVUpload::test_upload_csv_success - Asse...
+FAILED tests/test_analytics.py::TestDataUploadList::test_list_uploads_by_company
+FAILED tests/test_analytics.py::TestTransactionList::test_list_transactions_filter_by_company
+FAILED tests/test_authentication.py::TestUserProfile::test_update_profile_readonly_fields
+FAILED tests/test_companies.py::TestCompanyCreation::test_create_company_success
+FAILED tests/test_companies.py::TestMemberships::test_list_memberships - asse...
+FAILED tests/test_dataset_generation.py::TestCSVUploadIntegration::test_csv_upload_triggers_processing
+ERROR tests/test_analytics.py::TestAnalyticsResults::test_list_results_role_filtering_analyst
+============= 7 failed, 103 passed, 1 warning, 1 error in 42.81s ==============
